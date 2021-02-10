@@ -2,14 +2,30 @@ package fetcher
 
 import (
 	"context"
+	"image"
 	"net/http"
 
 	"github.com/tilezen/go-zaloa/pkg/common"
-	"github.com/tilezen/go-zaloa/pkg/service"
 )
 
+type ImageInput struct {
+	Image image.Image
+	Spec  ImageSpec
+}
+
+type FetchResponse struct {
+	Data []byte
+	Tile common.Tile
+	Spec ImageSpec
+}
+
+type ImageSpec struct {
+	Location image.Point
+	Crop     image.Rectangle
+}
+
 type TileFetcher interface {
-	GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*service.FetchResponse, error)
+	GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error)
 }
 
 func NewHTTPTileFetcher(baseURL string) TileFetcher {

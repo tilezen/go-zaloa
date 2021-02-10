@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/tilezen/go-zaloa/pkg/common"
-	"github.com/tilezen/go-zaloa/pkg/service"
 )
 
 type httpFetcher struct {
@@ -16,7 +15,7 @@ type httpFetcher struct {
 	client  *http.Client
 }
 
-func (h httpFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*service.FetchResponse, error) {
+func (h httpFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error) {
 	url := fmt.Sprintf("%s/%s/%s.png", h.baseURL, kind, t)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -39,7 +38,7 @@ func (h httpFetcher) GetTile(ctx context.Context, t common.Tile, kind common.Til
 		return nil, fmt.Errorf("error closing response body for %s: %w", url, err)
 	}
 
-	responseData := &service.FetchResponse{
+	responseData := &FetchResponse{
 		Data: data,
 		Tile: t,
 	}

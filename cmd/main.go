@@ -41,7 +41,7 @@ func main() {
 	zaloaService := service.NewZaloaService(tileFetcher)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/health_check", zaloaService.GetHealthCheckHandler())
+	r.HandleFunc("/healthcheck", zaloaService.GetHealthCheckHandler())
 	r.HandleFunc("/tilezen/terrain/v1/{tilesize:[0-9]+}/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", zaloaService.GetTileHandler())
 	r.HandleFunc("/tilezen/terrain/v1/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", zaloaService.GetTileHandler())
 
