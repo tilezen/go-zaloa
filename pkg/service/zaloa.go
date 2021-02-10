@@ -23,12 +23,6 @@ const (
 	maxZoom = 15
 )
 
-type FetchResponse struct {
-	Data []byte
-	Tile common.Tile
-	Spec ImageSpec
-}
-
 type ZaloaService interface {
 	GetHealthCheckHandler() func(http.ResponseWriter, *http.Request)
 	GetTileHandler() func(http.ResponseWriter, *http.Request)
@@ -55,7 +49,7 @@ func (z zaloaService) GetHealthCheckHandler() func(http.ResponseWriter, *http.Re
 type instruction struct {
 	// tileToFetch is the Tile to fetch
 	tileToFetch common.Tile
-	spec        ImageSpec
+	spec        fetcher.ImageSpec
 }
 
 func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) {
@@ -146,12 +140,12 @@ func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instruction
 	// Reduce the images into a single output Tile
 	dst := image.NewRGBA(image.Rect(0, 0, tileSize, tileSize))
 	for _, input := range imageInputs {
-		log.Printf("take crop %s and put at %s", input.spec.crop, input.spec.location)
+		log.Printf("take crop %s and put at %s", input.Spec.Crop, input.Spec.Location)
 		draw.Draw(
 			dst,
-			image.Rect(input.spec.location.X, input.spec.location.Y, input.spec.location.X+256, input.spec.location.Y+256),
-			input.image,
-			input.spec.crop.Min,
+			image.Rect(input.Spec.Location.X, input.Spec.Location.Y, input.Spec.Location.X+256, input.Spec.Location.Y+256),
+			input.Image,
+			input.Spec.Crop.Min,
 			draw.Src,
 		)
 	}
@@ -164,19 +158,9 @@ func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instruction
 	return b.Bytes(), nil
 }
 
-type ImageSpec struct {
-	location image.Point
-	crop     image.Rectangle
-}
-
-type ImageInput struct {
-	image image.Image
-	spec  ImageSpec
-}
-
-func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, instructions []instruction) ([]ImageInput, error) {
+func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, instructions []instruction) ([]fetcher.ImageInput, error) {
 	errs, ctx := errgroup.WithContext(ctx)
-	fetchResults := make(chan *FetchResponse, len(instructions))
+	fetchResults := make(chan *fetcher.FetchResponse, len(instructions))
 
 	for _, inst := range instructions {
 		// https://golang.org/doc/faq#closures_and_goroutines
@@ -200,16 +184,16 @@ func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, i
 	}
 	close(fetchResults)
 
-	inputResults := make([]ImageInput, 0, len(instructions))
+	inputResults := make([]fetcher.ImageInput, 0, len(instructions))
 	for result := range fetchResults {
 		decodedImage, _, err := image.Decode(bytes.NewBuffer(result.Data))
 		if err != nil {
 			return nil, fmt.Errorf("couldn't decode image data: %w", err)
 		}
 
-		inputResults = append(inputResults, ImageInput{
-			image: decodedImage,
-			spec:  result.Spec,
+		inputResults = append(inputResults, fetcher.ImageInput{
+			Image: decodedImage,
+			Spec:  result.Spec,
 		})
 	}
 
@@ -300,7 +284,7 @@ func generate260Instructions(t common.Tile) []instruction {
 	for i := 0; i < 9; i++ {
 		instructions[i] = instruction{
 			tileToFetch: tiles[i],
-			spec:        ImageSpec{location: locations[i], crop: croppings[i]},
+			spec:        fetcher.ImageSpec{Location: locations[i], Crop: croppings[i]},
 		}
 	}
 
@@ -395,7 +379,7 @@ func generate516Instructions(t common.Tile) []instruction {
 	for i := 0; i < 16; i++ {
 		instructions[i] = instruction{
 			tileToFetch: tiles[i],
-			spec:        ImageSpec{location: locations[i], crop: croppings[i]},
+			spec:        fetcher.ImageSpec{Location: locations[i], Crop: croppings[i]},
 		}
 	}
 
@@ -410,30 +394,30 @@ func generate512Instructions(t common.Tile) []instruction {
 	return []instruction{
 		{
 			tileToFetch: common.Tile{Z: zPlus1, X: doubleX, Y: doubleY},
-			spec: ImageSpec{
-				location: image.Point{X: 0, Y: 0},
-				crop:     image.Rect(0, 0, 256, 256),
+			spec: fetcher.ImageSpec{
+				Location: image.Point{X: 0, Y: 0},
+				Crop:     image.Rect(0, 0, 256, 256),
 			},
 		},
 		{
 			tileToFetch: common.Tile{Z: zPlus1, X: doubleX + 1, Y: doubleY},
-			spec: ImageSpec{
-				location: image.Point{X: 256, Y: 0},
-				crop:     image.Rect(0, 0, 256, 256),
+			spec: fetcher.ImageSpec{
+				Location: image.Point{X: 256, Y: 0},
+				Crop:     image.Rect(0, 0, 256, 256),
 			},
 		},
 		{
 			tileToFetch: common.Tile{Z: zPlus1, X: doubleX, Y: doubleY + 1},
-			spec: ImageSpec{
-				location: image.Point{X: 0, Y: 256},
-				crop:     image.Rect(0, 0, 256, 256),
+			spec: fetcher.ImageSpec{
+				Location: image.Point{X: 0, Y: 256},
+				Crop:     image.Rect(0, 0, 256, 256),
 			},
 		},
 		{
 			tileToFetch: common.Tile{Z: zPlus1, X: doubleX + 1, Y: doubleY + 1},
-			spec: ImageSpec{
-				location: image.Point{X: 256, Y: 256},
-				crop:     image.Rect(0, 0, 256, 256),
+			spec: fetcher.ImageSpec{
+				Location: image.Point{X: 256, Y: 256},
+				Crop:     image.Rect(0, 0, 256, 256),
 			},
 		},
 	}
@@ -443,9 +427,9 @@ func generate256Instructions(t common.Tile) []instruction {
 	return []instruction{
 		{
 			tileToFetch: t,
-			spec: ImageSpec{
-				location: image.Point{X: 0, Y: 0},
-				crop:     image.Rect(0, 0, 256, 256),
+			spec: fetcher.ImageSpec{
+				Location: image.Point{X: 0, Y: 0},
+				Crop:     image.Rect(0, 0, 256, 256),
 			},
 		},
 	}

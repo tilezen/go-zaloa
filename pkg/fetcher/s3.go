@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/tilezen/go-zaloa/pkg/common"
-	"github.com/tilezen/go-zaloa/pkg/service"
 )
 
 type s3tileFetcher struct {
@@ -19,7 +18,7 @@ type s3tileFetcher struct {
 	s3            s3.S3
 }
 
-func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*service.FetchResponse, error) {
+func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error) {
 	s3Key := fmt.Sprintf("%s/%s.png", kind, t)
 
 	input := &s3.GetObjectInput{
@@ -46,7 +45,7 @@ func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.T
 		return nil, fmt.Errorf("error closing response for Tile s3://%s/%s: %w", s.s3Bucket, s3Key, err)
 	}
 
-	responseData := &service.FetchResponse{
+	responseData := &FetchResponse{
 		Data: data,
 		Tile: t,
 	}
