@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 
 	"github.com/tilezen/go-zaloa/pkg/common"
 )
@@ -15,7 +16,7 @@ import (
 type s3tileFetcher struct {
 	s3Bucket      string
 	requesterPays bool
-	s3            s3.S3
+	s3            s3iface.S3API
 }
 
 func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error) {
