@@ -5,6 +5,8 @@ import (
 	"image"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+
 	"github.com/tilezen/go-zaloa/pkg/common"
 )
 
@@ -35,9 +37,10 @@ func NewHTTPTileFetcher(baseURL string) TileFetcher {
 	}
 }
 
-func NewS3TileFetcher(s3Bucket string, requesterPays bool) TileFetcher {
+func NewS3TileFetcher(s3 s3iface.S3API, bucket string, requesterPays bool) TileFetcher {
 	return &s3tileFetcher{
-		s3Bucket:      s3Bucket,
+		s3Bucket:      bucket,
 		requesterPays: requesterPays,
+		s3:            s3,
 	}
 }
