@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/chai2010/webp"
 	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
 
@@ -80,6 +81,18 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
+		var tileEncoding common.TileEncoding
+		switch vars["fmt"] {
+		case "png":
+			tileEncoding = common.TileEncoding_PNG
+		case "webp":
+			tileEncoding = common.TileEncoding_WEBP
+		default:
+			writer.WriteHeader(http.StatusNotFound)
+			_, _ = writer.Write([]byte("Invalid format"))
+			return
+		}
+
 		parsedTile, err := common.ParseTile(vars["z"], vars["x"], vars["y"])
 		if err != nil {
 			writer.WriteHeader(http.StatusNotFound)
@@ -117,7 +130,7 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
-		tileData, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset)
+		tileData, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset, tileEncoding)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = writer.Write([]byte("Error fetching parsedTile"))
@@ -131,7 +144,9 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 	}
 }
 
-func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind) ([]byte, error) {
+func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind,
+	encoding common.TileEncoding) ([]byte, error) {
+
 	// Fetch the tiles required to process the requested Tile
 	imageInputs, err := z.FetchTiles(ctx, tileset, instructions)
 	if err != nil {
@@ -150,10 +165,20 @@ func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instruction
 			draw.Src,
 		)
 	}
+
 	b := &bytes.Buffer{}
-	err = png.Encode(b, dst)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't encode result image: %w", err)
+
+	switch encoding {
+	case common.TileEncoding_WEBP:
+		err = webp.Encode(b, dst, &webp.Options{Lossless: true})
+		if err != nil {
+			return nil, fmt.Errorf("couldn't encode result image to webp: %w", err)
+		}
+	case common.TileEncoding_PNG:
+		err = png.Encode(b, dst)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't encode result image to png: %w", err)
+		}
 	}
 
 	return b.Bytes(), nil
