@@ -45,7 +45,7 @@ func main() {
 
 		var awsSession *session.Session
 		var err error
-		if iamRole == nil {
+		if *iamRole == "" {
 			awsSession, err = session.NewSessionWithOptions(session.Options{
 				Config: aws.Config{Region: awsRegion},
 			})

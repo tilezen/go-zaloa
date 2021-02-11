@@ -121,6 +121,7 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = writer.Write([]byte("Error fetching parsedTile"))
+			log.Printf("Error during ProcessTile: %+v", err)
 			return
 		}
 
