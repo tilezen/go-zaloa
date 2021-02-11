@@ -130,11 +130,19 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
-		tileData, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset, tileEncoding)
+		tileImage, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = writer.Write([]byte("Error fetching parsedTile"))
 			log.Printf("Error during ProcessTile: %+v", err)
+			return
+		}
+
+		tileData, err := z.EncodeTile(ctx, tileImage, tileEncoding)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte("Error encoding tile"))
+			log.Printf("Error during EncodeTile: %+v", err)
 			return
 		}
 
@@ -144,8 +152,7 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 	}
 }
 
-func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind,
-	encoding common.TileEncoding) ([]byte, error) {
+func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind) (image.Image, error) {
 
 	// Fetch the tiles required to process the requested Tile
 	imageInputs, err := z.FetchTiles(ctx, tileset, instructions)
@@ -166,22 +173,7 @@ func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instruction
 		)
 	}
 
-	b := &bytes.Buffer{}
-
-	switch encoding {
-	case common.TileEncoding_WEBP:
-		err = webp.Encode(b, dst, &webp.Options{Lossless: true})
-		if err != nil {
-			return nil, fmt.Errorf("couldn't encode result image to webp: %w", err)
-		}
-	case common.TileEncoding_PNG:
-		err = png.Encode(b, dst)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't encode result image to png: %w", err)
-		}
-	}
-
-	return b.Bytes(), nil
+	return dst, nil
 }
 
 func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, instructions []instruction) ([]fetcher.ImageInput, error) {
@@ -224,6 +216,26 @@ func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, i
 	}
 
 	return inputResults, nil
+}
+
+func (z zaloaService) EncodeTile(ctx context.Context, tileImage image.Image, encoding common.TileEncoding) ([]byte, error) {
+	b := &bytes.Buffer{}
+
+	var err error
+	switch encoding {
+	case common.TileEncoding_WEBP:
+		err = webp.Encode(b, tileImage, &webp.Options{Lossless: true})
+		if err != nil {
+			return nil, fmt.Errorf("couldn't encode result image to webp: %w", err)
+		}
+	case common.TileEncoding_PNG:
+		err = (&png.Encoder{CompressionLevel: png.NoCompression}).Encode(b, tileImage)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't encode result image to png: %w", err)
+		}
+	}
+
+	return b.Bytes(), nil
 }
 
 func generate260Instructions(t common.Tile) []instruction {
