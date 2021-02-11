@@ -1,19 +1,34 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync/atomic"
+	"syscall"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gorilla/mux"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/tilezen/go-zaloa/pkg/fetcher"
 	"github.com/tilezen/go-zaloa/pkg/service"
+)
+
+const (
+	// The time to wait after responding /ready with non-200 before starting to shut down the HTTP server
+	gracefulShutdownSleep = 20 * time.Second
+	// The time to wait for the in-flight HTTP requests to complete before exiting
+	gracefulShutdownTimeout = 5 * time.Second
 )
 
 func main() {
@@ -73,13 +88,56 @@ func main() {
 	zaloaService := service.NewZaloaService(tileFetcher)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/healthcheck", zaloaService.GetHealthCheckHandler())
+
+	// Readiness probe for graceful shutdown support
+	readinessResponseCode := uint32(http.StatusOK)
+	r.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(int(atomic.LoadUint32(&readinessResponseCode)))
+	})
+
+	r.HandleFunc("/live", zaloaService.GetHealthCheckHandler())
+
 	r.HandleFunc("/tilezen/terrain/v1/{tilesize:[0-9]+}/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
 	r.HandleFunc("/tilezen/terrain/v1/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("Listening to %s", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("Error listening to %s: %+v", addr, err)
+
+	// Support for upgrading an http/1.1 connection to http/2
+	// See https://github.com/thrawn01/h2c-golang-example
+	http2Server := &http2.Server{}
+	server := &http.Server{
+		Addr:    addr,
+		Handler: h2c.NewHandler(r, http2Server),
 	}
+
+	// Code to handle shutdown gracefully
+	shutdownChan := make(chan struct{})
+	go func() {
+		defer close(shutdownChan)
+
+		// Wait for SIGTERM to come in
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGTERM)
+		<-signals
+
+		log.Printf("SIGTERM received. Starting graceful shutdown.")
+
+		// Start failing readiness probes
+		atomic.StoreUint32(&readinessResponseCode, http.StatusInternalServerError)
+		// Wait for upstream clients
+		time.Sleep(gracefulShutdownSleep)
+		// Begin shutdown of in-flight requests
+		shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("Error waiting for server shutdown: %+v", err)
+		}
+		shutdownCtxCancel()
+	}()
+
+	log.Printf("Service started")
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("Couldn't start HTTP server: %+v", err)
+	}
+	<-shutdownChan
 }
