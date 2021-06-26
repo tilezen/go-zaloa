@@ -229,7 +229,7 @@ func (z zaloaService) EncodeTile(ctx context.Context, tileImage image.Image, enc
 			return nil, fmt.Errorf("couldn't encode result image to webp: %w", err)
 		}
 	case common.TileEncoding_PNG:
-		err = (&png.Encoder{CompressionLevel: png.NoCompression}).Encode(b, tileImage)
+		err = (&png.Encoder{CompressionLevel: png.DefaultCompression}).Encode(b, tileImage)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't encode result image to png: %w", err)
 		}
