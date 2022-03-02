@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -19,8 +20,8 @@ type s3tileFetcher struct {
 	s3            s3iface.S3API
 }
 
-func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error) {
-	s3Key := fmt.Sprintf("%s/%s.png", kind, t)
+func (s s3tileFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind, version common.TileVersion) (*FetchResponse, error) {
+	s3Key := path.Clean(fmt.Sprintf("%s/%s/%s.png", version, kind, t))
 
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(s.s3Bucket),

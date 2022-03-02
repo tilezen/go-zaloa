@@ -97,8 +97,8 @@ func main() {
 
 	r.HandleFunc("/live", zaloaService.GetHealthCheckHandler())
 
-	r.HandleFunc("/tilezen/terrain/v1/{tilesize:[0-9]+}/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
-	r.HandleFunc("/tilezen/terrain/v1/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
+	r.HandleFunc("/tilezen/terrain/{version:v[0-9]+}/{tilesize:[0-9]+}/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
+	r.HandleFunc("/tilezen/terrain/{version:v[0-9]+}/{tileset}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", zaloaService.GetTileHandler())
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("Listening to %s", addr)

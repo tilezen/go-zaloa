@@ -36,7 +36,7 @@ type zaloaService struct {
 func (z zaloaService) GetHealthCheckHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		ctx := request.Context()
-		_, err := z.fetcher.GetTile(ctx, common.Tile{Z: 0, X: 0, Y: 0}, common.TileType_TERRARIUM)
+		_, err := z.fetcher.GetTile(ctx, common.Tile{Z: 0, X: 0, Y: 0}, common.TileType_TERRARIUM, common.TileVersion_V1)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
 			log.Printf("Couldn't get healthcheck Tile: %+v", err)
@@ -67,6 +67,18 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 				_, _ = writer.Write([]byte("Invalid tilesize"))
 				return
 			}
+		}
+
+		var version common.TileVersion
+		switch vars["version"] {
+		case "v1":
+			version = common.TileVersion_V1
+		case "v2":
+			version = common.TileVersion_V2
+		default:
+			writer.WriteHeader(http.StatusNotFound)
+			_, _ = writer.Write([]byte("Invalid version"))
+			return
 		}
 
 		var tileset common.TileKind
@@ -130,7 +142,7 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
-		tileImage, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset)
+		tileImage, err := z.ProcessTile(ctx, int(tileSize), imageInstructions, tileset, version)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = writer.Write([]byte("Error fetching parsedTile"))
@@ -152,10 +164,10 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 	}
 }
 
-func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind) (image.Image, error) {
+func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instructions []instruction, tileset common.TileKind, version common.TileVersion) (image.Image, error) {
 
 	// Fetch the tiles required to process the requested Tile
-	imageInputs, err := z.FetchTiles(ctx, tileset, instructions)
+	imageInputs, err := z.FetchTiles(ctx, tileset, version, instructions)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching tiles: %w", err)
 	}
@@ -176,7 +188,7 @@ func (z zaloaService) ProcessTile(ctx context.Context, tileSize int, instruction
 	return dst, nil
 }
 
-func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, instructions []instruction) ([]fetcher.ImageInput, error) {
+func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, version common.TileVersion, instructions []instruction) ([]fetcher.ImageInput, error) {
 	errs, ctx := errgroup.WithContext(ctx)
 	fetchResults := make(chan *fetcher.FetchResponse, len(instructions))
 
@@ -185,7 +197,7 @@ func (z zaloaService) FetchTiles(ctx context.Context, tileset common.TileKind, i
 		inst := inst
 
 		errs.Go(func() error {
-			resp, err := z.fetcher.GetTile(ctx, inst.tileToFetch, tileset)
+			resp, err := z.fetcher.GetTile(ctx, inst.tileToFetch, tileset, version)
 			if err != nil {
 				return fmt.Errorf("couldn't fetch Tile %s: %w", inst.tileToFetch, err)
 			}

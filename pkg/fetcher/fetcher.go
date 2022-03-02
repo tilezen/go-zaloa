@@ -27,7 +27,7 @@ type ImageSpec struct {
 }
 
 type TileFetcher interface {
-	GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error)
+	GetTile(ctx context.Context, t common.Tile, kind common.TileKind, version common.TileVersion) (*FetchResponse, error)
 }
 
 func NewHTTPTileFetcher(baseURL string) TileFetcher {

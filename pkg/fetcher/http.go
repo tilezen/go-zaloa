@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path"
 
 	"github.com/tilezen/go-zaloa/pkg/common"
 )
@@ -15,8 +16,8 @@ type httpFetcher struct {
 	client  *http.Client
 }
 
-func (h httpFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind) (*FetchResponse, error) {
-	url := fmt.Sprintf("%s/%s/%s.png", h.baseURL, kind, t)
+func (h httpFetcher) GetTile(ctx context.Context, t common.Tile, kind common.TileKind, version common.TileVersion) (*FetchResponse, error) {
+	url := path.Clean(fmt.Sprintf("%s/%s/%s/%s.png", h.baseURL, version, kind, t))
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
