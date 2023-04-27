@@ -97,8 +97,10 @@ func (z zaloaService) GetTileHandler() func(http.ResponseWriter, *http.Request) 
 		switch vars["fmt"] {
 		case "png":
 			tileEncoding = common.TileEncoding_PNG
+			writer.Header().Set("content-type", "image/png")
 		case "webp":
 			tileEncoding = common.TileEncoding_WEBP
+			writer.Header().Set("content-type", "image/webp")
 		default:
 			writer.WriteHeader(http.StatusNotFound)
 			_, _ = writer.Write([]byte("Invalid format"))
