@@ -46,8 +46,7 @@ Your Lambda will execute in AWS with a role. You use this role to specify what p
 ```shell
 aws iam create-role \
   --role-name lambda-function-executor \
-  --assume-role-policy-document file://./trust-policy.js
-on
+  --assume-role-policy-document file://./trust-policy.json
 ```
 
 Let's attach the built-in basic Lambda execution policy to this role you just created:
@@ -55,24 +54,21 @@ Let's attach the built-in basic Lambda execution policy to this role you just cr
 ```shell
 aws iam attach-role-policy \
   --role-name lambda-function-executor \
-  --policy-arn arn:aws:iam::aws:policy/service-ro
-le/AWSLambdaBasicExecutionRole
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 ```
 
 ### Create the Lambda
 
 Now that the role is created, you need to upload the binary and create the lambda.
 
-**Note**: You must replace `arn:aws:i
-am::1234567:role/lambda-function-executor` in my example here with the ARN of the role (named `lambda-function-executor`) you created above.
+**Note**: You must replace `arn:aws:iam::1234567:role/lambda-function-executor` in my example here with the ARN of the role (named `lambda-function-executor`) you created above.
 
 ```shell
 AWS_DEFAULT_REGION=us-east-1 \
 aws lambda create-function \
   --function-name zaloa \
   --runtime go1.x \
-  --role="arn:aws:i
-am::1234567:role/lambda-function-executor" \
+  --role="arn:aws:iam::1234567:role/lambda-function-executor" \
   --handler main \
   --zip-file fileb://./output.zip
 ```
