@@ -24,7 +24,7 @@ GOOS=linux \
 CC=x86_64-linux-musl-gcc \
 CXX=x86_64-linux-musl-g++ \
 CGO_LDFLAGS="-static" \
-go build -o output cmd/lambda.go
+go build -o output cmd/lambda/main.go
 ```
 
 You'll end up with a file called `output` that is the compiled Zaloa binary.
